@@ -75,6 +75,7 @@ mod tests {
   // using parent module
   use super::{is_power_of_two, sort, sort_by};
   // using current crate
+  use crate::utils::{is_sorted_ascending, is_sorted_descending, new_u32_vec};
   use crate::SortOrder::*;
   #[test]
   fn sort_u32_ascending() {
@@ -203,5 +204,19 @@ mod tests {
     );
 
     assert_eq!(x, expected);
+  }
+
+  #[test]
+  fn sort_u32_large() {
+    {
+      let mut x = new_u32_vec(65536);
+      assert_eq!(sort(&mut x, &Ascending), Ok(()));
+      assert_eq!(is_sorted_ascending(&x), true);
+    }
+    {
+      let mut x = new_u32_vec(65536);
+      assert_eq!(sort(&mut x, &Descending), Ok(()));
+      assert_eq!(is_sorted_descending(&x), true);
+    }
   }
 }
