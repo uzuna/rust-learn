@@ -4,6 +4,8 @@ pub mod second;
 pub mod third;
 pub mod utils;
 
+pub mod primitive;
+
 pub enum SortOrder {
     Ascending,
     Descending,
