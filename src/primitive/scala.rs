@@ -1,3 +1,5 @@
+use std::str::FromStr;
+
 // unit is ()
 // this example return "unit"
 fn hello_unit() {
@@ -82,6 +84,85 @@ mod tests {
     assert_eq!(n1.saturating_mul(n2), std::u8::MAX);
     assert_eq!(n1.wrapping_mul(n2), 88);
     assert_eq!(n1.overflowing_mul(n2), (88, true));
+
+    let f1 = 10.0f64; //f64
+    let f2 = 1_234.567f64;
+    let _f3 = 578.6E+77;
+
+    assert_eq!(f1.mul_add(f2, 1.11), 12_346.78f64);
+    assert_eq!(f1.max(f2), f2);
+    println!("pow 2: {}", f1.powi(2));
+    println!("pow 1.5: {}", f1.powf(1.5));
+    println!("sqrt: {}", f1.sqrt());
+    println!("log: {}", f1.log(2.0));
+
+    let x = std::f64::consts::FRAC_PI_2;
+    println!("sin: {}", x.sin());
+    println!("cos: {}", x.cos());
+    println!("asin: {}", x.asin());
+    println!("acos: {}", x.acos());
+    println!("atan: {}", x.atan());
+
+    let x1 = 3.0_f64;
+    let y1 = -3.0_f64;
+    println!("atan2: {}", x1.atan2(y1));
+
+    let f4 = 1.5f64;
+    assert_eq!(f4.ceil(), 2.0);
+    assert_eq!(f4.round(), 2.0);
+    assert_eq!(f4.floor(), 1.0);
+
+    let fna: f64 = 0.0 / 0.0;
+    assert!(fna.is_nan());
+    assert!(f4.is_finite());
+    assert!(std::f64::INFINITY.is_infinite());
+    assert!(y1.is_sign_negative());
+    assert!(x1.is_sign_positive());
+
+    // with string
+    let s = "1234.567";
+    let x5 = f64::from_str(s).unwrap();
+    assert_eq!(x5, 1_234.567f64);
+    assert_eq!(x5.to_string(), s);
+
+    // consts
+    println!("e = {}", std::f64::consts::E);
+  }
+
+  #[test]
+  fn test_char() {
+    let c1 = 'A';
+    let c2 = 'a';
+    assert!(c1 < c2);
+    assert!(c1.is_uppercase());
+
+    let c3 = '9';
+    assert!(c3.is_digit(10)); // 10進数
+                              // assert!(c3.is_digit(8)); // error
+    let _c4 = '\t';
+    let _c5 = '\n';
+    let _c6 = '\'';
+    let _c9 = '漢';
+    let _c10 = '\u{5b57}';
+    let _c11 = '\u{1f600}';
+    assert_eq!(std::mem::size_of::<char>(), 4);
+  }
+
+  #[test]
+  fn reference() {
+    fn f1(mut n: i32) -> i32 {
+      n += 1;
+      n
+    }
+    fn f2(n: &mut i32) -> i32 {
+      *n += 1;
+      *n
+    }
+    let n = 1;
+    assert_eq!(f1(n), 2);
+    assert_eq!(n, 1);
+    let mut n = 1i32;
+    assert_eq!(f2(&mut n), n);
   }
 
   #[test]
