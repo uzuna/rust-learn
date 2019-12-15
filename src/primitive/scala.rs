@@ -196,12 +196,78 @@ mod tests {
     }
 
     let mut f: fn(i32) -> i32 = double;
+    // let mut f = double; // 型注釈なしでは関数定義と型推論されてエラーになる
     assert_eq!(f(-42), -84);
 
     f = abs;
     assert_eq!(f(-42), 42);
 
+    // 関数ポインタのサイズはusizeと同じ
     assert_eq!(std::mem::size_of_val(&f), std::mem::size_of::<usize>());
+
+    // closure
+    // コンパイル時に必要な変数を束縛した独自の環境を生成してそこで実行される
+    // ゆえにクロージャは関数ごとに独自の型が作られて扱われるため
+    // クロージャを受け取る関数の場合にはGenericsを使う必要がある
+    let x = 4;
+    let adder = |n| n + x;
+    assert_eq!(adder(2), 6);
+
+    // 束縛した情報を書き換えられるクロージャ
+    let mut state = false;
+    let mut flipflop = || {
+      state = !state;
+      state
+    };
+
+    assert_eq!(flipflop(), true);
+    assert_eq!(flipflop(), false);
+    assert_eq!(flipflop(), true);
+    assert_eq!(state, true);
+
+    // クロージャはFn, FnMut, FnOnceトレイトをもつ
+    // unsafeのつかない関数ポインタもそれらを自動実装する
+    // なのでmapの中にクロージャーをわたす、或いは関数ポインタを渡すの両方ができる
+    let v = vec!["I", "love", "Rust!"]
+      .into_iter()
+      .map(|s| s.len()) // 文字列を受け取るクロージャ
+      .collect::<Vec<_>>();
+    assert_eq!(v, vec![1, 4, 5]);
+    let v = vec!["I", "love", "Rust!"]
+      .into_iter()
+      .map(str::len) // 自動実装のため関数ポインターを渡すことができる
+      .collect::<Vec<_>>();
+    assert_eq!(v, vec![1, 4, 5]);
+  }
+
+  #[test]
+  fn tuple() {
+    // 要素番号から取り出すことができる
+    let t1 = (88, true);
+    assert_eq!(t1.0, 88);
+    assert_eq!(t1.1, true);
+
+    // 変数を使うことはできない
+    // let i = 0;
+    // let t1a = 1t.1; // compile error
+
+    let mut t1 = (88, true);
+    t1.0 += 100;
+    assert_eq!(t1, (188, true));
+
+    // pattern matchを使って分解
+    let (n1, n2) = t1;
+    assert_eq!(n1, 188);
+    assert_eq!(n2, true);
+
+    // 要素を指す可変の参照を得る
+    // _ で無視もできる
+    let mut t1 = ((0, 5), (10, -1));
+    let ((ref mut x1_ptr, ref mut y1_ptr), _) = t1;
+
+    *x1_ptr += 3;
+    *y1_ptr *= -1;
+    assert_eq!(t1, ((3, -5), (10, -1)));
   }
 
   #[test]
