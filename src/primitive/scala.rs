@@ -166,6 +166,45 @@ mod tests {
   }
 
   #[test]
+  fn raw_pointer() {
+    // メモリ安全ではないポインタで
+    // *const T か *mut T となる
+    let c1 = 'A';
+    let c1_ptr: *const char = &c1; // 明示的に変換
+    assert_eq!(unsafe { *c1_ptr }, 'A'); // 生ポインターの参照外しはunsafe
+
+    let mut n1 = 0;
+    let n1_ptr: *mut i32 = &mut n1;
+    assert_eq!(unsafe { *n1_ptr }, 0);
+    unsafe {
+      *n1_ptr = 1_000;
+      assert_eq!(*n1_ptr, 1_000);
+    }
+  }
+
+  #[test]
+  fn fn_pointer() {
+    fn double(n: i32) -> i32 {
+      n + n
+    }
+    fn abs(n: i32) -> i32 {
+      if n >= 0 {
+        n
+      } else {
+        -n
+      }
+    }
+
+    let mut f: fn(i32) -> i32 = double;
+    assert_eq!(f(-42), -84);
+
+    f = abs;
+    assert_eq!(f(-42), 42);
+
+    assert_eq!(std::mem::size_of_val(&f), std::mem::size_of::<usize>());
+  }
+
+  #[test]
   fn return_str() {
     let s1 = "Hello, ";
     let s2 = str_append(s1);
