@@ -271,6 +271,121 @@ mod tests {
   }
 
   #[test]
+  fn array() {
+    let a1 = [false, true, false];
+    let a2 = [0.0, -1.0, 1.0, 0.5];
+    assert_eq!(a1.len(), 3);
+    assert_eq!(a2.len(), 4);
+    // 入れ子OK
+    let a4 = [['a', 'b'], ['c', 'd']];
+    assert_eq!(a4.len(), 2);
+
+    let a3 = [0; 100]; //配列だけを作成
+    assert_eq!(a3.len(), 100);
+    // 固定長でコンパイル時に決まるため、変数で指定はできない
+    // let size = 100;
+    // let a1 = [0; size];
+
+    // 可変長はVec
+    let mut a1 = vec![0; 100];
+    a1.push(1);
+    assert_eq!(a1.len(), 101);
+    assert_eq!(a1.pop(), Some(1));
+    assert_eq!(a1.len(), 100);
+
+    // accessはindexを使う
+    let a1 = ['H', 'e', 'l', 'l', 'o'];
+    let mut i = 0;
+    assert_eq!(a1[0], 'H');
+    assert_eq!(a1[i], 'H');
+    i += 1;
+    assert_eq!(a1[i], 'e');
+    // assert_eq!(a1[5], 'e');
+
+    // panicしないアクセス
+    assert_eq!(a1.get(1), Some(&'e'));
+    assert_eq!(a1.get(5), None);
+
+    // iterを使う(sliceに型強制されて使えるようになる)
+    // iter_mutも
+    for ch in a1.iter() {
+      print!("iter: {}", ch);
+    }
+  }
+
+  #[test]
+  fn slice() {
+    // sliceとは排列要素にアクセスしやすくするビュー
+    let s1: Vec<&str> = "a,b,c,d,e,f,g,h,i,j".split(",").collect();
+    assert_eq!(s1.len(), 10);
+    assert_eq!(s1.first(), Some(&"a"));
+    assert_eq!(s1.get(1), Some(&"b"));
+    assert_eq!(s1.last(), Some(&"j"));
+    assert_eq!(s1.is_empty(), false);
+    assert_eq!(s1.contains(&"f"), true);
+    assert_eq!(s1.starts_with(&["f"]), false);
+    assert_eq!(s1.ends_with(&["i", "j"]), true);
+
+    // mutable slice
+    let mut a4 = [6, 4, 2, 8, 0, 9, 4, 3, 7, 5, 1, 7];
+
+    // 一部をsort
+    &mut a4[2..6].sort();
+    assert_eq!(&a4[2..6], &[0, 2, 8, 9]);
+
+    // 二つに分割
+    let (s4a, s4b) = &mut a4.split_at_mut(5);
+    s4a.reverse();
+    assert_eq!(s4a, &[8, 2, 0, 4, 6]);
+    s4b.sort_unstable();
+    assert_eq!(s4b, &[1, 3, 4, 5, 7, 7, 9]);
+  }
+
+  #[test]
+  fn str_slice() {
+    let s1 = "abc1";
+    let s2 = "abc2";
+    assert!(s1 < s2);
+    assert!(s1 != s2);
+
+    let s3 = "文字列を複数行にわたって書くと
+    改行やスペースが入る";
+    let s4 = "行末にバックスペースがあると\
+              改行などが入らない";
+
+    assert_eq!(
+      s3,
+      "文字列を複数行にわたって書くと\n    改行やスペースが入る"
+    );
+    assert_eq!(s4, "行末にバックスペースがあると改行などが入らない");
+
+    // \はエスケープ
+    // r#<n>""#<n>によってraw文字リテラルとなる
+    let _s6 = r#"\3##\"""fglkenr""#;
+
+    // util
+    let fruits = "あかりんご, あおりんご\nラズベリー, ブラックベリー";
+
+    // 改行で読みだす
+    let mut lines = fruits.lines();
+    let apple_line = lines.next();
+    assert_eq!(apple_line, Some("あかりんご, あおりんご"));
+    assert_eq!(lines.next(), Some("ラズベリー, ブラックベリー"));
+    assert_eq!(lines.next(), None);
+
+    if let Some(apples) = apple_line {
+      let mut apple_iter = apples.split(",");
+      assert_eq!(apple_iter.next(), Some("あかりんご"));
+
+      let green = apple_iter.next();
+      // 前後の空白を削除
+      assert_eq!(green.map(str::trim), Some("あおりんご"));
+    } else {
+      unreachable!();
+    }
+  }
+
+  #[test]
   fn return_str() {
     let s1 = "Hello, ";
     let s2 = str_append(s1);
