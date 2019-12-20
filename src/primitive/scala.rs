@@ -383,6 +383,9 @@ mod tests {
     } else {
       unreachable!();
     }
+
+    // mut &strは中身は変えられるけど長さが変えられない。
+    // Stringで扱う方が良い
   }
 
   #[test]
