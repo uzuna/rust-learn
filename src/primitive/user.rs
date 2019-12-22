@@ -233,4 +233,220 @@ mod tests {
     assert_eq!(add1("3", "27"), Ok(30));
     assert_eq!(add1("3", "abc"), Err("s1が整数ではありません".to_string()));
   }
+
+  #[test]
+  fn type_alias() {
+    type UserName = String;
+    type Id = i64;
+    type Timestamp = i64;
+    type User = (Id, UserName, Timestamp);
+
+    fn new_user(name: UserName, id: Id, created: Timestamp) -> User {
+      (id, name, created)
+    }
+
+    let id = 400;
+    let now = 4567890123;
+    let user = new_user(String::from("mika"), id, now);
+    assert_eq!(user.1, "mika".to_string());
+
+    // 新しい方ではないのでi64の項目が入れ替わってもコンパイルは通る
+    // let bad_user = new_user(String::from("mika"), now, id);
+
+    // 型aliasは型のネストが深くなった時に使うと便利
+    type SharedMap<K, V> = std::rc::Rc<std::cell::RefCell<std::collections::HashMap<K, V>>>;
+
+    // 型パラメータの具象化にも
+    // type Result<T> = result::Result<T,Error>;
+  }
+
+  #[test]
+  fn type_struct() {
+    // 名前付きフィールド構造体
+    // Default deriveによって型に合わせた初期値を自動導出できる
+    // そうしなければフィールドを省略した初期化はできない
+    // #[derive(Default)]
+    struct Polygon {
+      vertexts: Vec<(i32, i32)>,
+      stroke_width: u8,
+      fill: (u8, u8, u8),
+    }
+
+    // 独自に初期値を設定したい場合はdefault implを実装する
+    impl Default for Polygon {
+      fn default() -> Self {
+        Self {
+          stroke_width: 1,
+          vertexts: Default::default(),
+          fill: Default::default(),
+        }
+      }
+    }
+
+    // 値の初期化
+    let triangle = Polygon {
+      vertexts: vec![(0, 0), (3, 0), (2, 2)],
+      fill: (255, 255, 255),
+      stroke_width: 1,
+    };
+
+    // フィールド名と同じローカル変数の場合はフィールド名を省略できる
+    fn new_polygon(vertexts: Vec<(i32, i32)>) -> Polygon {
+      let stroke_width = 1;
+      let fill = (0, 0, 0);
+      Polygon {
+        vertexts,
+        fill,
+        stroke_width,
+      }
+    }
+    let quadrangle = new_polygon(vec![(5, 2), (4, 7), (10, 6), (8, 1)]);
+
+    // .<field_name>でアクセスできる
+    assert_eq!(triangle.vertexts[0], (0, 0));
+    assert_eq!(triangle.vertexts.len(), 3);
+    assert_eq!(triangle.fill, (255, 255, 255));
+
+    // パターンマッチによるアクセス
+    let Polygon {
+      vertexts: quad_vx, ..
+    } = quadrangle;
+    assert_eq!(4, quad_vx.len());
+    // パターンマッチによるアクセス same field name
+    let Polygon { fill, .. } = quadrangle;
+    assert_eq!(fill, (0, 0, 0));
+
+    // 書き換えはmutである場合にできる
+    let mut polygon = new_polygon(vec![(-1, -5), (-4, 0)]);
+    assert_eq!(polygon.vertexts.len(), 2);
+    polygon.vertexts.push((2, 8));
+    assert_eq!(polygon.vertexts.len(), 3);
+
+    assert_eq!(triangle.stroke_width, 1);
+    let triangle1 = Polygon {
+      stroke_width: 5,
+      ..triangle
+    };
+    // assert_eq!(triangle1.fill, triangle1.fill); //moved!!
+    assert_eq!(triangle1.fill, (255, 255, 255));
+    assert_eq!(triangle1.stroke_width, 5);
+
+    let polygon1: Polygon = Default::default();
+    let polygon2 = Polygon {
+      vertexts: vec![(0, 0), (3, 0), (2, 2)],
+      ..Default::default()
+    };
+    assert_eq!(polygon1.fill, (0, 0, 0));
+    assert_eq!(polygon2.stroke_width, 1);
+
+    // タプル構造体
+    struct Triangle(Vertex, Vertex, Vertex);
+    struct Vertex(i32, i32);
+
+    let vx0 = Vertex(0, 0);
+    let vx1 = Vertex(3, 0);
+    let triangle = Triangle(vx0, vx1, Vertex(2, 2));
+
+    assert_eq!((triangle.1).0, 3);
+
+    // 型エイリアスでは元の方が同じならエラーにならなかった
+    // 代わりに1つのタプル構造体を使うとエラーが出るようになる
+    struct UserName(String);
+    struct Id(u64);
+    struct Timestamp(u64);
+    type User = (Id, UserName, Timestamp);
+
+    fn new_user(name: UserName, id: Id, created: Timestamp) -> User {
+      (id, name, created)
+    }
+    let id = Id(400);
+    let now = Timestamp(45678901234);
+
+    // let bad_user = new_user(UserName(String::from("kazuki")), now, id); // mismatched type
+    let _user = new_user(UserName(String::from("kazuki")), id, now);
+
+    // ユニット構造体
+    #[derive(Debug, PartialEq)]
+    struct UniqueValue;
+
+    // 取りうる値は一つしかない
+    // フィールドとして持つ値がないもののトレイトを実装する時とかにつかう
+    let uv1 = UniqueValue;
+    let uv2 = UniqueValue;
+    assert_eq!(uv1, uv2);
+  }
+
+  #[test]
+  fn type_enum() {
+    #[derive(Debug, PartialEq)]
+    enum Weekday {
+      Monday,
+      Tuesday,
+      Wednesday,
+      Tursday,
+      Friday,
+    }
+    fn say_something(weekday: Weekday) {
+      if weekday == Weekday::Friday {
+        println!("TGIF!");
+      } else {
+        println!("まだ{:?}か", weekday);
+      }
+    }
+
+    say_something(Weekday::Friday);
+    say_something(Weekday::Monday);
+
+    // データを持たない列挙型ではisizeを割り当てられる
+    #[derive(Debug, PartialEq)]
+    enum Month {
+      January = 1,
+      February = 2,
+      March = 3,
+    }
+    assert_eq!(3, Month::March as isize);
+    println!("Month = {:?} = {}月", Month::March, Month::March as isize);
+
+    // データを持つ列挙型
+    type UserName = String;
+
+    #[derive(Debug)]
+    enum Task {
+      Open,
+      AssignedTo(UserName),
+      Working {
+        assignee: UserName,
+        remaining_hours: u16,
+      },
+      Done,
+    }
+
+    // // バリアント名を直接書くためにuse宣言をする
+    // use crate::Task::*;
+
+    let tasks = vec![
+      Task::AssignedTo(String::from("junko")),
+      Task::Working {
+        assignee: String::from("hiro"),
+        remaining_hours: 18,
+      },
+      Task::Done,
+    ];
+
+    for (i, task) in tasks.iter().enumerate() {
+      match task {
+        Task::AssignedTo(assignee) => {
+          println!("タスク{}は{}さんにアサインされています", i, assignee)
+        }
+        Task::Working {
+          assignee,
+          remaining_hours,
+        } => println!(
+          "タスク{}は{}さんが作業中で、残り{}時間です",
+          i, assignee, remaining_hours
+        ),
+        _ => println!("タスク{}はその他のステータス{:?}です", i, task),
+      }
+    }
+  }
 }
