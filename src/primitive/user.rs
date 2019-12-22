@@ -199,4 +199,38 @@ mod tests {
     assert_eq!(add_elems(&[3, 7, 31, 127]), Some(3 + 127));
     assert_eq!(add_elems(&[3, 7, 31]), None);
   }
+
+  #[test]
+  fn std_result() {
+    // 結果がエラーになる可能性を暗示する型
+    // 列挙型で定義されていてOkとなるTかErrのいずれかを返す
+    // Errの詳細を伝えたいときにはOptionではなくResultを使う
+
+    assert_eq!("10".parse::<i32>(), Ok(10));
+    let res0 = "a".parse::<i32>();
+    assert!(res0.is_err());
+    println!("{:?}", res0);
+
+    // ? operatorが使える
+    // try!マクロは以前使われていたが、1.13からは?が推奨
+    fn add0(s0: &str, s1: &str) -> Result<i32, std::num::ParseIntError> {
+      let s0 = s0.parse::<i32>()?;
+      let s1 = s1.parse::<i32>()?;
+      Ok(s0 + s1)
+    }
+
+    assert_eq!(add0("3", "27"), Ok(30));
+    assert!(add0("3", "abc").is_err());
+
+    // Optionと同じくmap,and_then,or_elseが使え
+    // エラーの書き換えを行うmap_errも使える
+    fn add1(s0: &str, s1: &str) -> Result<i32, String> {
+      let s0 = s0.parse::<i32>().map_err(|_e| "s0が整数ではありません")?;
+      let s1 = s1.parse::<i32>().map_err(|_e| "s1が整数ではありません")?;
+      Ok(s0 + s1)
+    }
+
+    assert_eq!(add1("3", "27"), Ok(30));
+    assert_eq!(add1("3", "abc"), Err("s1が整数ではありません".to_string()));
+  }
 }
