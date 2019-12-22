@@ -448,5 +448,84 @@ mod tests {
         _ => println!("タスク{}はその他のステータス{:?}です", i, task),
       }
     }
+
+    // enumもDefaultを実装できるが制約がある
+    // いくつバリアントがあってもデフォルトは一つだけ
+    // 構造体のような関数型レコードアップデート構文は使えない
+  }
+
+  #[test]
+  fn type_detail() {
+    // 構造体や列挙型は基本private
+    // 公開する場合はpubを付ける
+    // fieldにもそれぞれ指定が可能でprivate field二は外からアクセスできない
+    mod shape {
+      #[derive(Debug, Default)]
+      pub struct Polygon {
+        pub vertexts: Vec<(i32, i32)>,
+        pub stroke_width: u8,
+        pub fill: (u8, u8, u8),
+        internal_id: String,
+      }
+      // 列挙型はそれ自体を公開するかどうかだけが選べる
+      pub enum Ciel {
+        T1,
+        T2,
+        T3 { height: u32, depth: u8 },
+      }
+      pub fn new(vertexts: Vec<(i32, i32)>) -> Polygon {
+        Polygon {
+          vertexts,
+          ..Default::default()
+        }
+      }
+    }
+    let polygon = shape::new(vec![(0, 0), (1, 0), (2, 2)]);
+
+    println!("{:?}", polygon);
+
+    // 参照をもつ場合はライフタイム指定子を付ける
+    struct StrRef<'a> {
+      s1: &'a str,
+      s2: &'a str,
+    }
+
+    #[derive(Debug, Default)]
+    pub struct Polygon<T> {
+      pub vertexes: Vec<T>,
+    }
+    trait Coordinates {}
+
+    // デカルト座標
+    #[derive(Default)]
+    struct CartesianCoord {
+      x: f64,
+      y: f64,
+    }
+    impl Coordinates for CartesianCoord {}
+
+    // 極座標
+    #[derive(Default)]
+    struct PolarCoord {
+      r: f64,
+      theta: f64,
+    }
+    impl Coordinates for PolarCoord {}
+
+    let vertexes = vec![
+      CartesianCoord { x: 0.0, y: 0.0 },
+      CartesianCoord { x: 1.0, y: 2.0 },
+    ];
+
+    // CoordinatesのPolygon
+    let poly = Polygon {
+      vertexes,
+      ..Default::default()
+    };
+
+    // 内部構造はprivateになっている。
+    // 内部構造をあてとした設計をさせないため
+    // しかしCとFFIやり取りするために構造体をC向けに合わせることができる
+    // #[repr(C)]アトリビュートを付ける
   }
 }
