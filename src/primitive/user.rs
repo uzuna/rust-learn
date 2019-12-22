@@ -123,7 +123,7 @@ mod tests {
 
   #[test]
   fn std_ops_range() {
-    // 範囲指定
+    // 範囲指定の構文
     let a = ['a', 'b', 'c', 'd', 'e'];
 
     assert_eq!(a[..], ['a', 'b', 'c', 'd', 'e']);
@@ -138,5 +138,65 @@ mod tests {
     assert_eq!(1.., std::ops::RangeFrom { start: 1 });
     assert_eq!(1..3, std::ops::Range { start: 1, end: 3 });
     assert_eq!(1..=3, std::ops::RangeInclusive::new(1, 3));
+  }
+
+  #[test]
+  fn std_option() {
+    // Option型。値があるかどうかわからないことを示す型
+    let a1 = ['a', 'b', 'c', 'd'];
+    assert_eq!(a1.get(0), Some(&'a'));
+    assert_eq!(a1.get(4), None);
+
+    // 値の取り出しはmatchやif式が使える
+    let mut o1 = Some(10);
+    match o1 {
+      Some(s) => assert_eq!(s, 10),
+      None => unreachable!(),
+    }
+
+    o1 = Some(20);
+    if let Some(s) = o1 {
+      assert_eq!(s, 20);
+    }
+
+    // unwrap()持つかえるが、これはpanicを引き起こすので
+    // 必要な場面以外ではunwrap_or_else()などを使う
+    let mut o2 = Some(String::from("Hello"));
+    assert_eq!(o2.unwrap(), "Hello");
+    let o2 = None;
+    // o2.unwrap();
+
+    assert_eq!(
+      o2.unwrap_or_else(|| String::from("o2 is none")),
+      "o2 is none"
+    );
+
+    // Someの値を操作するときには map() や and_then()を使う
+
+    // mapはSome()にたいしてクロージャを適用する
+    let mut o3 = Some(25);
+    let f = |n| n * 10;
+    assert_eq!(o3.map(f), Some(250));
+
+    o3 = None;
+    assert_eq!(o3.map(f), None);
+
+    // SomeかNoneかを返したい場合はand_then()
+    o3 = Some(10);
+    assert_eq!(
+      o3.map(f)
+        .and_then(|n| if n >= 200 { Some(n) } else { None }),
+      None
+    );
+
+    // ? operator
+    fn add_elems(s: &[i32]) -> Option<i32> {
+      // ? opsはSomeなら値を取り出し、Noneなら関数からでる
+      let s0 = s.get(0)?;
+      let s3 = s.get(3)?;
+      Some(s0 + s3)
+    };
+    assert_eq!(add_elems(&[3, 7, 31, 127]), Some(3 + 127));
+    assert_eq!(add_elems(&[3, 7, 31]), None);
   }
 }
