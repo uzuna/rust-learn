@@ -524,8 +524,129 @@ mod tests {
     };
 
     // 内部構造はprivateになっている。
-    // 内部構造をあてとした設計をさせないため
+    // 内部構造を暗黙の前提とした設計をさせないために。
     // しかしCとFFIやり取りするために構造体をC向けに合わせることができる
     // #[repr(C)]アトリビュートを付ける
+  }
+
+  #[test]
+  fn type_cast() {
+    let i1 = 42; //i32
+    let f1 = i1 as f64 / 2.5; // f64
+    let c1 = 'a';
+    assert_eq!(97, c1 as u32);
+
+    let i2 = 300;
+    let u1 = i2 as u8;
+    assert_eq!(44, u1); // 型あふれしている
+
+    // can not complex type cast
+    let t1 = ('a', 42);
+    // let t2 = t1 as (u32, u8); // error
+    let v1 = vec![b'h', b'e', b'l', b'l', b'o'];
+    // let v2 = v1 as Vec<u16> // error
+
+    // ひとつづつ型変換する
+    let t3 = (t1.0 as u32, t1.1 as u8);
+    let v3 = v1.iter().map(|&n| n as u16).collect::<Vec<u16>>();
+
+    // 標準ライブラリには複合型を変換するためのFromトレイトが用意されている
+    let v4: Vec<u8> = From::from("hello");
+    assert_eq!(v1, v4);
+  }
+
+  #[test]
+  fn type_transmute() {
+    // アンセーフな型変換の仕組みでコンパイラのイントリンシック(組み込み関数)として表現されている。メモリ上のサイズが同じならどんな方でも変換できる
+
+    // Box<i32>
+    let p1 = Box::new(10);
+    // let p2 = p1 as *mut i32; // 通常これはできない
+    let p3: *mut i32 = unsafe { std::mem::transmute(p1) };
+
+    // 正確には型変換とは違う
+    // 以下の例をみよ
+    let f1 = 5.6789e+3_f32;
+    let i1 = f1 as u32;
+    assert_eq!(i1, 5678);
+
+    let i2: i32 = unsafe { std::mem::transmute(f1) };
+    assert_eq!(i2, 1169258291);
+  }
+
+  #[test]
+  fn type_coercion() {
+    // 型強制はコンパイラが必要に応じて行う暗黙的な型変換
+    // 簡潔に書ける代わりに餡目的なのでふるまいを把握しづらい
+
+    // 3,4,5は通常u32だが、u8に変換されている
+    let v1: Vec<u8> = vec![3, 4, 5];
+    // もし型強制なしで表現すると次のようになる
+    // let v1 = vec![3u8,4u8,5u8];
+
+    // Vec<u8>から&[u8]に型強制されているため
+    // first()が使える
+    assert_eq!(Some(&3u8), v1.first());
+    // 型強制がなかったら
+    // assert_eq!(Some(&3u8), (v1[..]).first());
+
+    let mut s1 = String::from("Type coercion ");
+    let s2 = String::from("is actualy easy.");
+
+    // 型強制によって&s2は&Stringから&strに変換
+    s1.push_str(&s2);
+    // 型強制が無かったら
+    // (&myt s1).push_str(s2.as_str());
+
+    // 変数定義、引数、任意の型
+    // 型強制は再束縛でも起こる
+    // 起こることがある場所、条件があることは知っておく
+
+    // Derefによる型強制
+    fn f1(n: &mut usize, s1: &str, slice: &[i32]) {
+      *n = s1.len() + slice.len()
+    }
+
+    let mut b1 = Box::new(0);
+    let s1 = String::from("deref");
+    let v1 = vec![1, 2, 3];
+
+    // Derefによる型強制
+    // &mut Box<usize> -> &mut usize
+    // &String -> &str
+    // &Vec<i32> -> &[i32]
+    f1(&mut b1, &s1, &v1);
+    assert_eq!(8, *b1);
+
+    // pointer weakening
+    // あるポインタがより機能が制限された別のポインタに強制できるもの
+    // mutabilityの除去 &mut T -> &T
+    // 生ポインターへの変換 &T -> *const T
+    fn f2(slice: &[usize]) -> usize {
+      slice.len()
+    }
+    fn f3(slice: &mut [usize]) {
+      let len = f2(slice);
+      slice[0] = len;
+    }
+    let mut v = vec![0; 10];
+    f3(&mut v[..]);
+    assert_eq!(10, v[0]);
+
+    // unsizing
+    // 配列への参照をスライスへ変換できる &[T;N] -> &[T]
+    fn f4(p: &[i32]) -> i32 {
+      p[0]
+    }
+    fn f5(p: Box<[i32]>) -> i32 {
+      p[0]
+    }
+    let a1 = [1, 2, 3, 4];
+    assert_eq!(1, f4(&a1));
+    assert_eq!(1, f5(Box::new(a1)));
+
+    // method receiver coercion
+    let v1: Vec<u8> = vec![3, 4, 5];
+    assert_eq!(v1.first(), Some(&3u8));
   }
 }
