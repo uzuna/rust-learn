@@ -177,5 +177,54 @@ mod tests {
       None => "Nothing",
     };
     assert_eq!("Long string", message);
+
+    // if let suggar syntax
+    // matchの糖衣構文であるパターンにパッチした場合とそれ以外の分岐
+    let score = Some(100);
+    if let Some(100) = score {
+      assert_eq!(Some(100), score)
+    } else {
+      unreachable!();
+    }
+  }
+
+  #[test]
+  fn syntax_loop() {
+    // loop式なのでbreakの値を取ることができる
+    // 一番内側から抜けるため、ラベルを付ける場合は '<label>: loop
+    let mut counter = 0;
+    let ten = 'outer: loop {
+      if counter >= 10 {
+        break 'outer counter;
+      }
+      counter += 1;
+    };
+    assert_eq!(10, counter);
+
+    // whileは条件付きループ。
+    // breakでは値が返せず常に()になる
+    counter = 0;
+    while counter >= 10 {
+      counter += 1;
+    }
+
+    // while let
+    // 条件を満たす場合はwhileの中を実行する
+    let mut counter = Some(0);
+    while let Some(i) = counter {
+      if i == 10 {
+        counter = None;
+      } else {
+        counter = Some(i + 1);
+      }
+    }
+
+    // for
+    // 要素をループする
+    // break,continueも使えるが返る値は常に()
+    let vector = vec!["Cyan", "Magenta", "Yellow", "Black"];
+    for v in vector.iter() {
+      println!("{}", v);
+    }
   }
 }
