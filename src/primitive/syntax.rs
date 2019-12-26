@@ -227,4 +227,66 @@ mod tests {
       println!("{}", v);
     }
   }
+
+  #[test]
+  fn closure() {
+    let mut one = 1;
+    let plus_one = |x| x + one;
+    assert_eq!(11, plus_one(10));
+
+    // oneをクロージャに貸しているためoneは変更できない
+    // moveを使うと値をコピーするため
+    // 値は変更できるようになる。束縛した値は無関係になる
+    let plus_one = move |x| x + one;
+    one += 1;
+    assert_eq!(11, plus_one(10));
+    assert_eq!(2, one);
+  }
+
+  #[test]
+  fn attribute() {
+    // アイテム宣言にメタデータを付けるもの
+    // #[test]のようにアイテム宣言の前に書く方法と
+
+    fn test1() {
+      #![test]
+      //アイテム宣言の中に書く方法がある
+    }
+    // test attributeは testをオプションを渡した時だけコンパイルされる
+    // #[cfg(unix)] // ターゲットがunixの時だけ
+    // #[cfg(windows)] // ターゲットがwindowsの時だけ
+    // #[cfg(allfnc)] // コンパイル時に"--cfg alifns"を渡した時だけ
+    // #[cfg(color = "blue")] // コンパイル時に"--cfg color="blue""を渡した時だけ
+    // #[derive(Debug)]
+    // Debug トレイトを自動的に実装する
+    // #[allow(unused_imports)]
+    // 使わないクレートのリントチェックを無視
+    // #[deny(dead_code)]
+  }
+
+  #[test]
+  fn mod_pub() {
+    mod server {
+      // pubを付けなければプライベートになる
+      pub fn echo() -> String {
+        String::from("echo!")
+      }
+    }
+    mod crate_server {
+      // server moduleの含まれるクレートに対してはpublic
+      pub(crate) fn echo() -> String {
+        String::from("echo!")
+      }
+    }
+    // mod app_server {
+    //   // app::network moduleではpublic
+    //   pub(in app::network) fn echo() -> String {
+    //     String::from("echo!")
+    //   }
+    // }
+    assert_eq!("echo!", &server::echo());
+
+    // fileに切り出した場合は
+    // mod <filename>;をsrc/main.rsもしくは<dir>/mod.rs内で行う
+  }
 }
