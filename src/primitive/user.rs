@@ -646,6 +646,13 @@ mod tests {
     assert_eq!(1, f5(Box::new(a1)));
 
     // method receiver coercion
+    // Vec<u8>にはfirst()は実装されていないので
+    // 1. selfのT型にメソッドがあるか
+    // 2. T型のトレイトメソッドがあるか
+    // 3. &T型にメソッドがあるか
+    // 4. &T型にトレイトメソッドがあるか
+    // 5. &mut Tにメソッドがあるか
+    // の順でレシーバーを探して型強制を行う
     let v1: Vec<u8> = vec![3, 4, 5];
     assert_eq!(v1.first(), Some(&3u8));
   }
