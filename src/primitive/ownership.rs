@@ -1,27 +1,30 @@
 use std::ops::Drop;
+#[derive(Debug)]
+pub struct Parent(usize, Child, Child);
+
+#[derive(Debug)]
+pub struct Child(pub usize);
+
+// デストラクタ
+impl Drop for Parent {
+  fn drop(&mut self) {
+    println!("Dropping {:?}", self);
+  }
+}
+impl Drop for Child {
+  fn drop(&mut self) {
+    println!("Dropping {:?}", self);
+  }
+}
+#[derive(Copy, Clone, Debug)]
+pub struct CloneableParent(usize, CloneableChild, CloneableChild);
+
+#[derive(Copy, Clone, Debug)]
+pub struct CloneableChild(usize);
+
 #[cfg(test)]
 mod tests {
-  #[derive(Debug)]
-  struct Parent(usize, Child, Child);
-
-  #[derive(Debug)]
-  struct Child(usize);
-  // デストラクタ
-  impl Drop for Parent {
-    fn drop(&mut self) {
-      println!("Dropping {:?}", self);
-    }
-  }
-  impl Drop for Child {
-    fn drop(&mut self) {
-      println!("Dropping {:?}", self);
-    }
-  }
-  #[derive(Copy, Clone, Debug)]
-  struct CloneableParent(usize, CloneableChild, CloneableChild);
-
-  #[derive(Copy, Clone, Debug)]
-  struct CloneableChild(usize);
+  use crate::primitive::ownership::*;
   #[test]
   fn value_scope() {
     // p1がParentの所有者
