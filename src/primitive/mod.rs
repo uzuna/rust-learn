@@ -1,4 +1,5 @@
 pub mod ownership;
+pub mod poly;
 pub mod refptr;
 pub mod scala;
 pub mod syntax;
