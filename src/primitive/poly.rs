@@ -129,6 +129,34 @@ fn print_point3(point: impl Coordinates) {
   println!("({}, {})", p.x, p.y);
 }
 
+// Generics Trait
+trait Init<T> {
+  fn init(t: T) -> Self;
+}
+
+impl<T> Init<T> for Box<T> {
+  fn init(t: T) -> Self {
+    Box::new(t)
+  }
+}
+
+trait As<T> {
+  fn cast(self) -> T;
+}
+
+impl As<u64> for u8 {
+  fn cast(self) -> u64 {
+    self as u64
+  }
+}
+
+// 同じAsをu8に実装しているがパラメータが異なるので問題ない
+impl As<u32> for u8 {
+  fn cast(self) -> u32 {
+    self as u32
+  }
+}
+
 #[cfg(test)]
 mod tests {
   // 型を使う、またtrairのメソッドを呼ぶにはそのモジュールをインポートしてあることが必要
@@ -146,5 +174,16 @@ mod tests {
     let p1 = (1.0, 0.0);
     let cr1 = p1.to_cartesian().rotate(std::f64::consts::PI * 1.0);
     assert_eq!(-1.0, cr1.x);
+  }
+
+  fn generics_trait() {
+    // 推論可能な場合は省略できる
+    let _data = Box::init("foo");
+    // 型を指定する場合は型名::<型>と書く
+    let _data = Box::<f32>::init(0.1);
+
+    let _one_u32: u32 = 1.cast();
+    let _one_u64: u64 = 1.cast();
+    // let _one_i8: i8 = 1.cast(); // i8には実装していないので失敗する
   }
 }
