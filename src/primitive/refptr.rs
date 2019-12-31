@@ -95,6 +95,7 @@ mod tests {
   fn tls_refcell() {
     // RefCellを使ったThred Local Storageの実装例
     // スレッドごとに個別の値を持つストレージを作る
+    // thread_local!では不変の参照しか得られないが、内側のmutabilityで可変参照が使える
     thread_local!(
       static RABBITS: RefCell<HashSet<&'static str>> = {
         let rb = ["ロップイヤー","ダッチ"].iter().cloned().collect();
@@ -109,6 +110,7 @@ mod tests {
     // mainで入れた値は見つからないし
     // mainでも別スレッドで入れた値は見つからない
     std::thread::spawn(|| {
+      // このスレッドでは初めて呼ばれたのでRABBITSは初期化されている
       RABBITS.with(|rb| {
         rb.borrow_mut().insert("ドワーフホト");
         assert!(!rb.borrow().contains("ネザーランド・ドワーフ"));
@@ -122,5 +124,84 @@ mod tests {
       assert!(rb.borrow().contains("ネザーランド・ドワーフ"));
       assert!(!rb.borrow().contains("ドワーフホト"));
     });
+  }
+
+  use std::error::Error;
+  use std::sync::{Arc, RwLock};
+  #[test]
+  fn run_multi_thread_mutable() {
+    arc_rwlock();
+    arc_poisning();
+  }
+
+  fn arc_rwlock() -> Result<(), Box<dyn Error>> {
+    // ArcとRwLockで複数スレッドで可変の値を共有する
+    let cats: HashSet<_> = ["みけ", "ハチワレ", "サバ", "アメショ"]
+      .iter()
+      .cloned()
+      .collect();
+    let cats = Arc::new(RwLock::new(cats));
+
+    fn stringify(x: impl ToString) -> String {
+      x.to_string()
+    }
+
+    // csで参照をとっているブロック
+    {
+      let cs = cats.read().map_err(stringify)?;
+      assert!(cs.contains("みけ"));
+      assert!(cs.contains("ハチワレ"));
+    }
+    cats.write().map_err(stringify)?.insert("黒猫");
+
+    // Arc::cloneでcatsへの参照ポインタを別のスレッドに渡している
+    // ArcはRwLockへのDerefを実装しているためwrite()メソッドを直に呼べる
+    // read,writeでスレッドをブロックする。ブロックしないtry_*()メソッドもある
+    // read/writeはロックが取得できるとResult型を返す
+    // 内部への参照はガード呼ばれるデータ構造を通してアクセスする
+    // ガードはHashSetへのDerefを実装しているからそのままinsertを呼べる
+    let cats1 = Arc::clone(&cats);
+    std::thread::spawn(move || {
+      cats1
+        .write()
+        .map(|mut cs| cs.insert("白猫"))
+        .map_err(stringify)
+    })
+    .join()
+    .expect("Thread error")?;
+    assert!(cats.read().map_err(stringify)?.contains("みけ"));
+    assert!(cats.read().map_err(stringify)?.contains("白猫"));
+    Ok(())
+  }
+
+  fn arc_poisning() -> Result<(), Box<dyn Error>> {
+    //
+    let cats: HashSet<_> = ["みけ", "ハチワレ", "サバ", "アメショ"]
+      .iter()
+      .cloned()
+      .collect();
+    let cats = Arc::new(RwLock::new(cats));
+    let cats1 = Arc::clone(&cats);
+    std::thread::spawn(move || {
+      let _guard = cats1.write();
+      panic!();
+    })
+    .join()
+    .expect_err("");
+    fn stringify(x: impl ToString) -> String {
+      x.to_string()
+    }
+
+    // writeをとったスレッドが落ちたばあい、arcの中身の整合性が取れない可能性がある
+    // PoisonErrorとなっているためinto_inner()を使って中身を取り出すこともできる
+    match cats.read() {
+      Ok(_) => unreachable!(),
+      Err(err) => {
+        let data = err.into_inner();
+        assert!(data.contains("みけ"));
+        assert!(!data.contains("黒猫"));
+      }
+    }
+    Ok(())
   }
 }
