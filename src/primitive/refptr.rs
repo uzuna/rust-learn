@@ -43,5 +43,84 @@ mod tests {
     if let Some(_) = week.upgrade() {
       unreachable!();
     }
+
+    // week pointerを語るには参照ポインタの使い方について語る必要がある
+    // 参照ポインタの場合は循環参照するとリソースが解放できなくなる
+    // 相互に参照を持っており、どちらかを開放するともう一方が未定義参照を持つオブジェクトになってしまう
+    // 弱い参照はupgradeしないと参照が得られないため未定義参照が出来ない。これはRc,Arcの概念でRustの物ではない
+    // そういう場合、たとえば親子のリンクを表現するときにはP->Cを強C->Pを弱参照にするなどをする
+    // 実現しているものによってはRcよりもアリーナアロケータなどのほうが良いこともある
+  }
+
+  use std::cell::RefCell;
+
+  #[test]
+  fn interior_mutability() {
+    // コンパイル時の借用チェックを迂回する仕組み
+
+    // この例だとStringは変更できないため以下のようにsフィールドだけを変更すrことができない
+    struct A {
+      c: char,
+      s: String,
+    }
+    let a = A {
+      c: 'a',
+      s: "ales".to_string(),
+    };
+    let r = &a;
+    // r.s.push('a'); // `r` is a `&` reference, so the data it refers to cannot be borrowed as mutable
+
+    struct B {
+      c: char,
+      s: RefCell<String>,
+    }
+
+    let b = B {
+      c: 'b',
+      s: RefCell::new("alex".to_string()),
+    };
+    let rb = &b;
+    rb.s.borrow_mut().push('a');
+    {
+      let rbs = b.s.borrow();
+      assert_eq!(&*rbs, "alexa");
+      // b.s.borrow_mut(); rbsが有効なのでここではmutが取れない
+      assert!(b.s.try_borrow_mut().is_err());
+    }
+    assert!(b.s.try_borrow_mut().is_ok());
+  }
+
+  use std::collections::HashSet;
+  #[test]
+  fn tls_refcell() {
+    // RefCellを使ったThred Local Storageの実装例
+    // スレッドごとに個別の値を持つストレージを作る
+    thread_local!(
+      static RABBITS: RefCell<HashSet<&'static str>> = {
+        let rb = ["ロップイヤー","ダッチ"].iter().cloned().collect();
+        RefCell::new(rb)
+      }
+    );
+    RABBITS.with(|rb| {
+      assert!(rb.borrow().contains("ロップイヤー"));
+      rb.borrow_mut().insert("ネザーランド・ドワーフ");
+    });
+    // 別スレッドで生成して試すと
+    // mainで入れた値は見つからないし
+    // mainでも別スレッドで入れた値は見つからない
+    std::thread::spawn(|| {
+      RABBITS.with(|rb| {
+        rb.borrow_mut().insert("ドワーフホト");
+        assert!(!rb.borrow().contains("ネザーランド・ドワーフ"));
+        assert!(rb.borrow().contains("ドワーフホト"));
+      });
+    })
+    .join()
+    .expect("Thread error");
+
+    RABBITS.with(|rb| {
+      assert!(rb.borrow().contains("ネザーランド・ドワーフ"));
+      assert!(!rb.borrow().contains("ドワーフホト"));
+    });
   }
 }
