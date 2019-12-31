@@ -204,4 +204,79 @@ mod tests {
     }
     Ok(())
   }
+
+  fn static_rwlock() {
+    // crateが取れるようになったら自走する
+  }
+
+  #[test]
+  fn closures() {
+    // Closureは3つのトレイトの種類がある
+    // fnは不変の環境を持つものでSyncを実装すれば複数スレッドで実行できる
+    fn apply_fn<F>(f: &F, ch: char)
+    where
+      F: Fn(char) -> bool,
+    {
+      assert!(f(ch));
+    }
+
+    // fn_mutは可変の参照を持つ事を示し、すべての環境の値がSyncを実装しているときには
+    // 複数スレッドで実行できる
+    fn apply_fn_mut<F>(f: &mut F, ch: char)
+    where
+      F: FnMut(char) -> bool,
+    {
+      assert!(f(ch));
+    }
+
+    // 所有権をmoveさせるため1度しか実行できない
+    fn apply_fn_once<F>(f: F, ch: char)
+    where
+      F: FnOnce(char) -> bool,
+    {
+      assert!(f(ch));
+    }
+
+    {
+      let s1 = "read-only";
+      let mut lookup = |ch| s1.find(ch).is_some();
+      apply_fn(&lookup, 'r');
+      apply_fn_mut(&mut lookup, 'o');
+      apply_fn_once(lookup, 'y');
+    }
+    {
+      // 可変の値を束縛する
+      let mut s2 = "append".to_string();
+      let mut modify = |ch| {
+        s2.push(ch);
+        true
+      };
+      // apply_fn(&modify, 'r'); Fnトレイトを実装していないので
+      apply_fn_mut(&mut modify, 'e');
+      apply_fn_once(modify, 'd');
+      assert_eq!("appended", s2);
+    }
+    {
+      // 可変の値を束縛する
+      let mut s3 = "be converted".to_string();
+      let mut consume = |ch| {
+        let bytes = s3.into_bytes();
+        bytes.contains(&(ch as u8))
+      };
+      // apply_fn(&modify, 'r'); Fnトレイトを実装していないので
+      // apply_fn_mut(&mut consume, 'c'); // s3はinto_bytesで表示されるため
+      apply_fn_once(consume, 'd');
+      // assert_eq!("appended", s3); // error borrowd
+    }
+
+    // move keywordはクロージャの外からクロージャ環境へ持っていく
+    // FnOnceはクロージャ環境から本体へ
+    // std::thread::spawnは別スレッドで実行するため'static境界をもつ
+    // いつ解放されるかわからない値を渡セルと問題があるから。
+    // 参照を避けるためにmoveを使って別スレッドで'static扱いのライフタイムにできる
+    let s1 = "read-only";
+    let lookup = move || assert!(s1.find('d').is_some());
+    let handle = std::thread::spawn(lookup);
+    handle.join().expect("Failed to run thread.");
+  }
 }
