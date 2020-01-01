@@ -213,7 +213,59 @@ mod tests {
     }
 
     // トレードオフがあるから使い分ける
-    // ほとんどの場合はげ練りクスで表現しきれないケースでのみ選ばれることが多い
+    // ほとんどの場合はジェネリクスで表現しきれないケースでのみ選ばれることが多い
     // トレイトオブジェクトを作るときもオブジェクト安全性と呼ばれる制約を満たさねばならない
+  }
+
+  #[test]
+  fn impl_trait() {
+    // 全称impl Trait: 引数の位置に書く
+    // 存在impl Trait: 戻り値の位置に書く
+    // 具体的な方には言及をせず、戻り値はIteratorを実装したなにかであると抽象化する
+    fn to_n(n: i32) -> impl Iterator {
+      0..n
+    }
+
+    // 複雑なイテレータを書くときにも役立つ
+    // 下の場合戻り値の型はFilter<Range<i32>,fn(&i32) -> bool>だがIteratorと書けば済むし
+    // 静的ディスパッチによって最適化されたコードが生成される
+    fn to_n_even(n: i32) -> impl Iterator {
+      (0..n).filter(|i| i % 2 == 0)
+    }
+
+    // クロージャなどの匿名型を返す場合は型がかけない
+    // そこでトレイトオブジェクトか、impl Trailを使うことになる
+    // fn gen_counter(init: i32) -> ??? {
+    //   let mut n = init;
+    //   move || {
+    //     let res = n;
+    //     n+=1;
+    //     ret
+    //   }
+    // }
+    // トレイトオブジェクトで書く場合
+    fn gen_counter_trait_object(init: i32) -> Box<dyn FnMut() -> i32> {
+      let mut n = init;
+      Box::new(move || {
+        let ret = n;
+        n += 1;
+        ret
+      })
+    }
+    // 存在impl Traitの場合
+    fn gen_counter_impl_trait(init: i32) -> impl FnMut() -> i32 {
+      let mut n = init;
+      move || {
+        let ret = n;
+        n += 1;
+        ret
+      }
+    }
+    let mut to1 = gen_counter_trait_object(1);
+    assert_eq!(1, to1());
+    assert_eq!(2, to1());
+    let mut to2 = gen_counter_impl_trait(1);
+    assert_eq!(1, to2());
+    assert_eq!(2, to2());
   }
 }
