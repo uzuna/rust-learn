@@ -82,3 +82,27 @@ rustはメモリもリソースも同じ仕組みのため不要になった時�
 ## 値の所有者
 
 
+
+## Trait
+
+### std::io::Write
+
+`Vec<u8>` とかが実装していることで特別な型をつクラブにバイト列バッファとして利用可能にしている
+
+### std::convert::From
+
+```rs
+pub trait From<T>{
+  fn from(T) -> Self;
+}
+
+// いろんな型に実装できる。一つのトレイトで多くの仕事ができる
+impl From<u8> for u64 {...}
+impl From<u16> for u64 {...}
+impl From<u32> for u64 {...}
+```
+
+fromを実装するとintoメソッドが使えるようになるので多くの場合はintoメソッドとして使う
+```rs
+let string: String = "str".into();
+```

@@ -21,6 +21,7 @@ struct Matrix([[f64; 2]; 2]);
 // traitの基本
 // デカルト座標と相互変換できるものは座標トレイトを持つと定義
 pub trait Coordinates {
+  // 関連関数
   fn to_cartesian(self) -> CartesianCoord;
   fn from_catesian(cart: CartesianCoord) -> Self;
 }
@@ -155,6 +156,12 @@ impl As<u32> for u8 {
   fn cast(self) -> u32 {
     self as u32
   }
+}
+
+// トレイトは値ではなく型に関連づいた関数や定数、型を定義できる
+pub trait Dimension {
+  // 関連定数
+  const DIMENSION: u32;
 }
 
 #[cfg(test)]
