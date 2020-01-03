@@ -85,11 +85,11 @@ rustはメモリもリソースも同じ仕組みのため不要になった時�
 
 ## Trait
 
-### std::io::Write
+#### std::io::Write
 
 `Vec<u8>` とかが実装していることで特別な型をつクラブにバイト列バッファとして利用可能にしている
 
-### std::convert::From
+#### std::convert::From
 
 ```rs
 pub trait From<T>{
@@ -106,3 +106,109 @@ fromを実装するとintoメソッドが使えるようになるので多くの
 ```rs
 let string: String = "str".into();
 ```
+
+
+#### std::iter::Iterator
+
+```rs
+pub trait Iterator {
+  type Item;
+  fn next(&mut self) -> Option<Self::Item>;
+
+  fn size_hint(&self) -> (usize, Option<yser<>>)
+  fn count(self) -> usize {}
+}
+```
+
+#### std::ops::Eq
+
+PartialEqを継承しているだけ。違いは `a=b`なら`b=a` が成り立つが `a=a` を保証しない。
+Eqは保証する。具体的には f64のNanとか
+メソッドは違っても別のセマンティクスを表現するのにつかう
+
+
+#### std::marker::Sized
+型のサイズがコンパイル時に決定できることを示す
+`pub trait Sized{}`
+コンパイラに特別扱いされる型のマーカーとしてもtraitが使われる
+
+
+### 演算子のオーバーロード
+
+トレイトで制御されている
+
+```rs
+1+1;
+1.0+1.0;
+"abc".to_string() + "def";
+```
+
+自分の型に実装するのは以下のようにやる
+
+```rs
+struct MyInt(i64);
+
+impl Add<MyInt> for MyInt {
+  type Output = Self;
+  fn add(self, rhs MyInt) -> Self::Output {MyInt(self.0 + rhs.0)}
+}
+let one = MyInt(1);
+let two = MyInt(2);
+let mut i = one + two;
+```
+
+### トレイトのテクニック
+
+#### StringとInto<String>
+
+Stringを受け取る関数だと文字リテラルを渡すのに`.to_string()`を毎度呼ぶ必要がある
+
+```rs
+fn take_string(s: String){}
+fn take_string(s: impl Into<String>){
+  let _s = s.into();
+}
+
+take_string("some");
+take_string("some".to_string().as_str()); // ゼロコスト抽象かなので変換されない
+```
+
+#### オプショナル引数
+
+Fromトレイトが`impl<T> From<T> for Option<T>`のように実装されえているのでSomeが省略できる
+
+```rs
+fn range(min: impl Into<Option<usize>>, max: Into<Option<usize>>){}
+
+range(1,None);
+```
+
+#### パスネーム
+
+OSに依存するためRustの文字列と互換性があると限らない
+`Path, OathBuf, &str, String, OSSttr, OSString` がパスネームっぽくふるまう
+すべてAsRef<Path>を実装しているので以下のようなトレイト境界で統一的に扱える
+
+```rs
+fn hello_to_file(path: impl AsRef<Path>) -> io::Result<()> {
+  let mut file = File::new(path.as_ref())?;
+  write!(file,"Hello, File");
+  Ok(())
+}
+```
+
+#### &strとstr
+
+strで実装するとレシーバが&strで使いやすくなる
+BoxのDerefを通じて&strに変換できるのがよい
+
+```rs
+impl SomeTrait for str {
+  fn take_ref(&self){}
+}
+let s = "hoge";
+s.take_ref();
+let box_s = Box::new(*s);
+box_s.take_ref();
+```
+
