@@ -212,3 +212,49 @@ let box_s = Box::new(*s);
 box_s.take_ref();
 ```
 
+#### Newtypeによるtrait実装制約の回避
+
+外部クレートの方に外部クレートのトレイトを実装できない話をした。
+簡単に回避できる方法もあり一度タプルで包めばよい
+wrapperなどの形で名前を適切につけること
+
+```rs
+struct ExLibStructWrapper(ExLibStruct);
+
+impl ExLibTrait for ExLibStructWrapper{..}
+
+let els =ExLibStructWrapper(ExLibStruct::new());
+els.method();
+```
+
+#### 列挙型を使った型の混合
+
+あるトレイトを実装した複数の方を混ぜて使うには、トレイトオブジェクトが必要だが、
+登場する型をプログラムが把握していれば、トレイトオブジェクトを使わなくても列挙型で混合できる。
+
+```rs
+#[derive(Debug)]
+enum Either<A, B> {
+  A(A),
+  B(B),
+}
+
+impl<A, B> fmt::Display for Either<A, B>
+where 
+  A: fmt::Display,
+  B: fmt::Display,
+{
+  fn fmt(&self, f: &mut::Formatter) -> fmt::Result {
+    match self {
+      Either::A(a) => a.fmt(f),
+      Either::B(b) => b.fmt(f),
+    }
+  }
+}
+
+let mut v : Vex<Either<bol, i32>> = vec![];
+```
+
+```
+
+
