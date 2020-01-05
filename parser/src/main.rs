@@ -188,6 +188,174 @@ fn test_lexer() {
     );
 }
 
+/// ASTを表すデータ型
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+enum AstKind {
+    Num(u64),
+    /// 単項演算
+    UniOp {
+        op: UniOp,
+        e: Box<Ast>,
+    },
+    /// 二項演算
+    BinOp {
+        op: BinOp,
+        l: Box<Ast>,
+        r: Box<Ast>,
+    },
+}
+
+type Ast = Annot<AstKind>;
+
+impl Ast {
+    fn num(n: u64, loc: Loc) -> Self {
+        Self::new(AstKind::Num(n), loc)
+    }
+    fn uniop(op: UniOp, e: Ast, loc: Loc) -> Self {
+        Self::new(AstKind::UniOp { op, e: Box::new(e) }, loc)
+    }
+    fn binop(op: BinOp, l: Ast, r: Ast, loc: Loc) -> Self {
+        Self::new(
+            AstKind::BinOp {
+                op,
+                l: Box::new(l),
+                r: Box::new(r),
+            },
+            loc,
+        )
+    }
+}
+
+/// 単項演算子を示すデータ型
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+enum UniOpKind {
+    Plus,
+    Minus,
+}
+type UniOp = Annot<UniOpKind>;
+
+impl UniOp {
+    fn plus(loc: Loc) -> Self {
+        Self::new(UniOpKind::Plus, loc)
+    }
+    fn minus(loc: Loc) -> Self {
+        Self::new(UniOpKind::Minus, loc)
+    }
+}
+
+/// 二項演算子を示すデータ型
+/// カッコは構造化時に反映されるためここには表れない
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+enum BinOpKind {
+    Add,
+    Sub,
+    Mult,
+    Div,
+}
+type BinOp = Annot<BinOpKind>;
+
+impl BinOp {
+    fn add(loc: Loc) -> Self {
+        Self::new(BinOpKind::Add, loc)
+    }
+    fn sub(loc: Loc) -> Self {
+        Self::new(BinOpKind::Sub, loc)
+    }
+    fn mult(loc: Loc) -> Self {
+        Self::new(BinOpKind::Mult, loc)
+    }
+    fn div(loc: Loc) -> Self {
+        Self::new(BinOpKind::Div, loc)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+enum ParseError {
+    /// 予期しないトークン
+    UnexpectedToken(Token),
+    /// 式を期待していた
+    NotExpression(Token),
+    /// 演算子を期待していた
+    NotOperator(Token),
+    /// 括弧が閉じられていない
+    UnclosedOpenParen(Token),
+    /// 式の解析が終わったのにトークンが残っている
+    RedundantExpression(Token),
+    Eof,
+}
+use std::iter::Peekable;
+fn parse(tokens: Vec<Token>) -> Result<Ast, ParseError> {
+    let mut tokens = tokens.into_iter().peekable();
+    let ret = parse_expr(&mut tokens)?;
+    match tokens.next() {
+        Some(tok) => Err(ParseError::RedundantExpression(tok)),
+        None => Ok(ret),
+    }
+}
+
+fn parse_expr<Tokens>(tokens: &mut Peekable<Tokens>) -> Result<Ast, ParseError>
+where
+    Tokens: Iterator<Item = Token>,
+{
+    parse_expr3(tokens)
+}
+
+fn parse_expr3<Tokens>(tokens: &mut Peekable<Tokens>) -> Result<Ast, ParseError>
+where
+    Tokens: Iterator<Item = Token>,
+{
+    // まずはEXPR3("+"|"-") EXPR2を試す
+    let mut e = parse_expr2(tokens)?;
+    loop {
+        match tokens.peek().map(|tok| tok.value) {
+            Some(TokenKind::Plus) | Some(TokenKind::Minus) => {
+                let op = match tokens.next().unwrap() {
+                    Token {
+                        value: TokenKind::Plus,
+                        loc,
+                    } => BinOp::add(loc),
+                    Token {
+                        value: TokenKind::Minus,
+                        loc,
+                    } => BinOp::sub(loc),
+                    _ => unreachable!(),
+                };
+                let r = parse_expr2(tokens)?;
+                let loc = e.loc.merge(&r.loc);
+                Ok(Ast::binop(op, e, r, loc))
+            }
+            _ => return Ok(e),
+        }
+    }
+}
+fn parse_expr2<Tokens>(tokens: &mut Peekable<Tokens>) -> Result<Ast, ParseError>
+where
+    Tokens: Iterator<Item = Token>,
+{
+    let mut e = parse_expr1(tokens)?;
+    loop {
+        match tokens.peek().map(|tok| tok.value) {
+            Some(TokenKind::Asterisk) | Some(TokenKind::Slash) => {
+                let op = match tokens.next().unwrap() {
+                    Token {
+                        value: TokenKind::Asterisk,
+                        loc,
+                    } => BinOp::mult(loc),
+                    Token {
+                        value: TokenKind::Asterisk,
+                        loc,
+                    } => BinOp::div(loc),
+                    _ => unreachable!(),
+                };
+                let r = parse_expr1(tokens)?;
+                let loc = e.loc.merge(&r.loc);
+                e = Ast::binop(op, e, r, loc)
+            }
+            _ => return Ok(e),
+        }
+    }
+}
+
 use std::io;
 
 fn prompt(s: &str) -> io::Result<()> {
