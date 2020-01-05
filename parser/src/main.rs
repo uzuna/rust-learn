@@ -26,7 +26,7 @@ impl<T> Annot<T> {
 
 /// Tokens
 /// 列挙型を使って表現し、それに位置情報を加えたものとする
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 enum TokenKind {
     Number(u64),
     Plus,
@@ -170,24 +170,6 @@ fn recognize_many(input: &[u8], mut pos: usize, mut f: impl FnMut(u8) -> bool) -
     pos
 }
 
-#[test]
-fn test_lexer() {
-    assert_eq!(lex("1"), Ok(vec![Token::number(1, Loc(0, 1))]));
-    assert_eq!(
-        lex("1 + 2 * 3 - -10"),
-        Ok(vec![
-            Token::number(1, Loc(0, 1)),
-            Token::plus(Loc(2, 3)),
-            Token::number(2, Loc(4, 5)),
-            Token::asterisk(Loc(6, 7)),
-            Token::number(3, Loc(8, 9)),
-            Token::minus(Loc(10, 11)),
-            Token::minus(Loc(12, 13)),
-            Token::number(10, Loc(13, 15)),
-        ])
-    );
-}
-
 /// ASTを表すデータ型
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 enum AstKind {
@@ -304,56 +286,118 @@ fn parse_expr3<Tokens>(tokens: &mut Peekable<Tokens>) -> Result<Ast, ParseError>
 where
     Tokens: Iterator<Item = Token>,
 {
-    // まずはEXPR3("+"|"-") EXPR2を試す
-    let mut e = parse_expr2(tokens)?;
-    loop {
-        match tokens.peek().map(|tok| tok.value) {
-            Some(TokenKind::Plus) | Some(TokenKind::Minus) => {
-                let op = match tokens.next().unwrap() {
-                    Token {
-                        value: TokenKind::Plus,
-                        loc,
-                    } => BinOp::add(loc),
-                    Token {
-                        value: TokenKind::Minus,
-                        loc,
-                    } => BinOp::sub(loc),
-                    _ => unreachable!(),
-                };
-                let r = parse_expr2(tokens)?;
-                let loc = e.loc.merge(&r.loc);
-                Ok(Ast::binop(op, e, r, loc))
-            }
-            _ => return Ok(e),
-        }
+    fn parse_expr3_op<Tokens>(tokens: &mut Peekable<Tokens>) -> Result<BinOp, ParseError>
+    where
+        Tokens: Iterator<Item = Token>,
+    {
+        let op = tokens
+            .peek()
+            .ok_or(ParseError::Eof)
+            .and_then(|tok| match tok.value {
+                TokenKind::Plus => Ok(BinOp::add(tok.loc.clone())),
+                TokenKind::Minus => Ok(BinOp::sub(tok.loc.clone())),
+                _ => Err(ParseError::NotOperator(tok.clone())),
+            })?;
+        tokens.next();
+        Ok(op)
     }
+    parse_left_binop(tokens, parse_expr2, parse_expr3_op)
 }
+
 fn parse_expr2<Tokens>(tokens: &mut Peekable<Tokens>) -> Result<Ast, ParseError>
 where
     Tokens: Iterator<Item = Token>,
 {
-    let mut e = parse_expr1(tokens)?;
+    fn parse_expr2_op<Tokens>(tokens: &mut Peekable<Tokens>) -> Result<BinOp, ParseError>
+    where
+        Tokens: Iterator<Item = Token>,
+    {
+        let op = tokens
+            .peek()
+            .ok_or(ParseError::Eof)
+            .and_then(|tok| match tok.value {
+                TokenKind::Asterisk => Ok(BinOp::mult(tok.loc.clone())),
+                TokenKind::Slash => Ok(BinOp::div(tok.loc.clone())),
+                _ => Err(ParseError::NotOperator(tok.clone())),
+            })?;
+        tokens.next();
+        Ok(op)
+    }
+    parse_left_binop(tokens, parse_expr1, parse_expr2_op)
+}
+fn parse_left_binop<Tokens>(
+    tokens: &mut Peekable<Tokens>,
+    subexpr_parser: fn(&mut Peekable<Tokens>) -> Result<Ast, ParseError>,
+    op_parser: fn(&mut Peekable<Tokens>) -> Result<BinOp, ParseError>,
+) -> Result<Ast, ParseError>
+where
+    Tokens: Iterator<Item = Token>,
+{
+    let mut e = subexpr_parser(tokens)?;
     loop {
-        match tokens.peek().map(|tok| tok.value) {
-            Some(TokenKind::Asterisk) | Some(TokenKind::Slash) => {
-                let op = match tokens.next().unwrap() {
-                    Token {
-                        value: TokenKind::Asterisk,
-                        loc,
-                    } => BinOp::mult(loc),
-                    Token {
-                        value: TokenKind::Asterisk,
-                        loc,
-                    } => BinOp::div(loc),
-                    _ => unreachable!(),
+        match tokens.peek() {
+            Some(_) => {
+                let op = match op_parser(tokens) {
+                    Ok(op) => op,
+                    Err(_) => break,
                 };
-                let r = parse_expr1(tokens)?;
+                let r = subexpr_parser(tokens)?;
                 let loc = e.loc.merge(&r.loc);
                 e = Ast::binop(op, e, r, loc)
             }
-            _ => return Ok(e),
+            _ => break,
         }
     }
+    Ok(e)
+}
+
+fn parse_expr1<Tokens>(tokens: &mut Peekable<Tokens>) -> Result<Ast, ParseError>
+where
+    Tokens: Iterator<Item = Token>,
+{
+    match tokens.peek().map(|tok| tok.value) {
+        Some(TokenKind::Plus) | Some(TokenKind::Minus) => {
+            let op = match tokens.next() {
+                Some(Token {
+                    value: TokenKind::Plus,
+                    loc,
+                }) => UniOp::plus(loc),
+                Some(Token {
+                    value: TokenKind::Minus,
+                    loc,
+                }) => UniOp::minus(loc),
+                _ => unreachable!(),
+            };
+            let e = parse_atom(tokens)?;
+            let loc = op.loc.merge(&e.loc);
+            Ok(Ast::uniop(op, e, loc))
+        }
+        _ => parse_atom(tokens),
+    }
+}
+
+fn parse_atom<Tokens>(tokens: &mut Peekable<Tokens>) -> Result<Ast, ParseError>
+where
+    Tokens: Iterator<Item = Token>,
+{
+    tokens
+        .next()
+        .ok_or(ParseError::Eof)
+        .and_then(|tok| match tok.value {
+            TokenKind::Number(n) => Ok(Ast::new(AstKind::Num(n), tok.loc)),
+            TokenKind::LParen => {
+                let e = parse_expr(tokens)?;
+                match tokens.next() {
+                    Some(Token {
+                        value: TokenKind::RParen,
+                        ..
+                    }) => Ok(e),
+                    Some(t) => Err(ParseError::RedundantExpression(t)),
+                    _ => Err(ParseError::UnclosedOpenParen(tok)),
+                }
+            }
+            _ => Err(ParseError::NotExpression(tok)),
+        })
 }
 
 use std::io;
@@ -383,4 +427,50 @@ fn main() {
             break;
         }
     }
+}
+
+#[test]
+fn test_lexer() {
+    assert_eq!(lex("1"), Ok(vec![Token::number(1, Loc(0, 1))]));
+    assert_eq!(
+        lex("1 + 2 * 3 - -10"),
+        Ok(vec![
+            Token::number(1, Loc(0, 1)),
+            Token::plus(Loc(2, 3)),
+            Token::number(2, Loc(4, 5)),
+            Token::asterisk(Loc(6, 7)),
+            Token::number(3, Loc(8, 9)),
+            Token::minus(Loc(10, 11)),
+            Token::minus(Loc(12, 13)),
+            Token::number(10, Loc(13, 15)),
+        ])
+    );
+}
+#[test]
+fn test_parser() {
+    let tokens = lex("1 + 2 * 3 - -10").unwrap();
+    let ast = parse(tokens);
+    assert_eq!(
+        ast,
+        Ok(Ast::binop(
+            BinOp::sub(Loc(10, 11)),
+            Ast::binop(
+                BinOp::add(Loc(2, 3)),
+                Ast::num(1, Loc(0, 1)),
+                Ast::binop(
+                    BinOp::new(BinOpKind::Mult, Loc(6, 7)),
+                    Ast::num(2, Loc(4, 5)),
+                    Ast::num(3, Loc(8, 9)),
+                    Loc(4, 9),
+                ),
+                Loc(0, 9),
+            ),
+            Ast::uniop(
+                UniOp::minus(Loc(12, 13)),
+                Ast::num(10, Loc(13, 15)),
+                Loc(12, 15)
+            ),
+            Loc(0, 15)
+        ))
+    )
 }
