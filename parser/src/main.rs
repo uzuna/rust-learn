@@ -1,6 +1,6 @@
 /// 位置情報 .0 -? .1までの区間
 /// ex. Loc(4,6)は入力文字の5,7文字までの区間を挿す
-#[derive(Deug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 struct Loc(usize, usize);
 
 impl Loc {
@@ -12,7 +12,7 @@ impl Loc {
 
 /// アノーテーション。値にデータを持たせたもの
 /// ここではLocを持たせて位置を教える
-#[derive(Deug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 struct Annot<T> {
     value: T,
     loc: Loc,
@@ -44,27 +44,27 @@ impl Token {
     fn number(n: u64, loc: Loc) -> Self {
         Self::new(TokenKind::Number(n), loc)
     }
-    fn plus(nloc: Loc) -> Self {
+    fn plus(loc: Loc) -> Self {
         Self::new(TokenKind::Plus, loc)
     }
-    fn minus(nloc: Loc) -> Self {
+    fn minus(loc: Loc) -> Self {
         Self::new(TokenKind::Minus, loc)
     }
-    fn asterisk(nloc: Loc) -> Self {
+    fn asterisk(loc: Loc) -> Self {
         Self::new(TokenKind::Asterisk, loc)
     }
-    fn slash(nloc: Loc) -> Self {
+    fn slash(loc: Loc) -> Self {
         Self::new(TokenKind::Slash, loc)
     }
-    fn lparen(nloc: Loc) -> Self {
+    fn lparen(loc: Loc) -> Self {
         Self::new(TokenKind::LParen, loc)
     }
-    fn rparen(nloc: Loc) -> Self {
+    fn rparen(loc: Loc) -> Self {
         Self::new(TokenKind::RParen, loc)
     }
 }
 
-#[derive()]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 enum LexErrorKind {
     InvalidChar(char),
     Eof,
@@ -105,7 +105,7 @@ fn lex(input: &str) -> Result<Vec<Token>, LexError> {
             b'(' => lex_a_token!(lex_lparen(input, pos)),
             b')' => lex_a_token!(lex_rparen(input, pos)),
             b' ' | b'\n' | b'\t' => {
-                let ((), p) = skip_spaces(input, pos)?;
+                let ((), p) = skip_spaces(input, pos);
                 pos = p;
             }
             b => return Err(LexError::invalid_char(b as char, Loc(pos, pos + 1))),
@@ -124,7 +124,7 @@ fn consume_byte(input: &[u8], pos: usize, b: u8) -> Result<(u8, usize), LexError
             Loc(pos, pos + 1),
         ));
     }
-    OK((b, pos + 1))
+    Ok((b, pos + 1))
 }
 
 fn lex_plus(input: &[u8], start: usize) -> Result<(Token, usize), LexError> {
@@ -149,20 +149,42 @@ fn lex_rparen(input: &[u8], start: usize) -> Result<(Token, usize), LexError> {
     consume_byte(input, start, b')').map(|(_, end)| (Token::rparen(Loc(start, end)), end))
 }
 
-fn lex_number(input: &[u8], mut pos: usize) -> Result<(Token, usize), LexError> {
+fn lex_number(input: &[u8], pos: usize) -> Result<(Token, usize), LexError> {
     use std::str::from_utf8;
 
     let start = pos;
-    while pos < input.len() && b"123456789".contains(&input[pos]) {
-        pos += 1;
-    }
-    let n = from_utf8(&input[start..pos]).unwrap().parse().unwrap();
-    (Token::number(n, Loc(start, pos)), pos)
+    let end = recognize_many(input, pos, |b| b"0123456789".contains(&b));
+    let n = from_utf8(&input[start..end]).unwrap().parse().unwrap();
+    Ok((Token::number(n, Loc(start, end)), end))
 }
 
-fn skip_spaces(input: &[u8], mut pos: usize) -> ((), usize) {
-    while pos < input.len() && b" \n\t".contains(&input[pos]) {
+fn skip_spaces(input: &[u8], pos: usize) -> ((), usize) {
+    let pos = recognize_many(input, pos, |b| b" \n\t".contains(&b));
+    ((), pos)
+}
+
+fn recognize_many(input: &[u8], mut pos: usize, mut f: impl FnMut(u8) -> bool) -> usize {
+    while pos < input.len() && f(input[pos]) {
         pos += 1;
     }
-    ((), pos)
+    pos
+}
+
+#[test]
+
+fn test_lexer() {
+    assert_eq!(lex("1"), Ok(vec![Token::number(1, Loc(0, 1))]));
+    assert_eq!(
+        lex("1 + 2 * 3 - -10"),
+        Ok(vec![
+            Token::number(1, Loc(0, 1)),
+            Token::plus(Loc(2, 3)),
+            Token::number(2, Loc(4, 5)),
+            Token::asterisk(Loc(6, 7)),
+            Token::number(3, Loc(8, 9)),
+            Token::minus(Loc(10, 11)),
+            Token::minus(Loc(12, 13)),
+            Token::number(10, Loc(13, 15)),
+        ])
+    );
 }
