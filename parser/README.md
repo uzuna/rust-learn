@@ -75,3 +75,9 @@ mv --compile-->out
 
 トークン取り出し時には`Vec<Token>`だが、parse時にはイテレーターにする
 また、LLを使ったパースでは一度だけ先読みが必要なので`Peekable<T>`を使う
+
+
+
+# Effective tools
+
+- https://godbolt.org/ : アセンブリ出力
