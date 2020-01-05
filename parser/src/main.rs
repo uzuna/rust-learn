@@ -497,6 +497,46 @@ impl FromStr for Ast {
     }
 }
 
+impl Error {
+    /// 診断メッセージを表示
+    fn show_diagnostic(&self, input: &str) {
+        use self::Error::*;
+        use self::ParseError as P;
+        let (e, loc): (&StdError, Loc) = match self {
+            Lexer(e) => (e, e.loc.clone()),
+            Parser(e) => {
+                let loc = match e {
+                    P::UnexpectedToken(Token { loc, .. })
+                    | P::NotExpression(Token { loc, .. })
+                    | P::NotOperator(Token { loc, .. })
+                    | P::UnclosedOpenParen(Token { loc, .. }) => loc.clone(),
+                    P::RedundantExpression(Token { loc, .. }) => Loc(loc.0, input.len()),
+                    P::Eof => Loc(input.len(), input.len() + 1),
+                };
+                (e, loc)
+            }
+        };
+        eprintln!("{}", e);
+        print_annot(input, loc);
+    }
+}
+
+/// inputに対してlocの位置を強調表示する
+fn print_annot(input: &str, loc: Loc) {
+    eprintln!("{}", input);
+    eprintln!("{}{}", " ".repeat(loc.0), "^".repeat(loc.1 - loc.0));
+}
+
+fn show_trace<E: StdError>(e: E) {
+    eprintln!("{}", e);
+    // sourceの表示
+    let mut source = e.source();
+    while let Some(e) = source {
+        eprintln!("cause by {}", e);
+        source = e.source()
+    }
+}
+
 use std::io;
 
 fn prompt(s: &str) -> io::Result<()> {
@@ -521,13 +561,8 @@ fn main() {
             let ast = match line.parse::<Ast>() {
                 Ok(ast) => ast,
                 Err(e) => {
-                    eprintln!("{}", e);
-                    // sourceの表示
-                    let mut source = e.source();
-                    while let Some(e) = source {
-                        eprintln!("cause by {}", e);
-                        source = e.source()
-                    }
+                    e.show_diagnostic(&line);
+                    show_trace(e);
                     continue;
                 }
             };
