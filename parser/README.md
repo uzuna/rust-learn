@@ -121,6 +121,50 @@ Rust1.33から`description()`を使わず`Display`トレイトを実装するよ
 
 `cargo doc`で`target/doc/<project_name>/index.html`に生成される
 
+
+## テスト
+
+### 書き方
+#### プログラムに含めない場合
+
+##### 名前空間を分ける
+```rs
+#[cfg(test)]
+mod tests {
+  #[test]
+  fn testcode() {
+
+  }
+}
+```
+
+##### テストディレクトリを使う
+
+`<wd>/tests/`の下に適当な名前でファイルを作る
+
+
+##### ドキュメントに記載する
+
+```rs
+...
+/// # Example
+/// 入力中の単語の頻度を数える例
+///
+/// ```
+/// use std::io::Cursor;
+/// use wordcount::{count, CountOption};
+///
+/// let mut input = Cursor::new("aa bb cc bb");
+/// let freq = count(input, CountOption::Word);
+///
+/// assert_eq!(freq["aa"], 1);
+/// ```
+pub fn count(input: impl BufRead, option: CountOption) -> HashMap<String, usize> {
+  let re = Regex::new(r"\w+").unwrap();
+  let mut fregs = HashMap::new();
+  ...
+```
+
 # Effective tools
 
 - https://godbolt.org/ : アセンブリ出力
