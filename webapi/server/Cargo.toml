@@ -14,3 +14,7 @@ failure= "0.1"
 api = {path = "../api"}
 dotenv = "0.13"
 chrono = "0.4"
+
+[dependencies.diesel]
+features = ["postgres", "chrono", "r2d2"]
+version = "1.4"

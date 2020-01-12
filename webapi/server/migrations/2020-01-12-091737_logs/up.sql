@@ -1,6 +1,5 @@
 -- Your SQL goes here
 
-
 CREATE TABLE logs (
     id BIGSERIAL NOT NULL,
     user_agent VARCHAR NOT NULL,
