@@ -14,6 +14,10 @@ failure= "0.1"
 api = {path = "../api"}
 dotenv = "0.13"
 chrono = "0.4"
+csv = "1"
+actix-web-multipart-file = "0.1"
+futures = "0.1"
+itertools = "0.8"
 
 [dependencies.diesel]
 features = ["postgres", "chrono", "r2d2"]
