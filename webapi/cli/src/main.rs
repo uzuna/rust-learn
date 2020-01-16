@@ -1,11 +1,41 @@
 use clap::{App, AppSettings, Arg, SubCommand};
 use clap::{_clap_count_exprs, arg_enum};
+use reqwest::Client;
+use std::io;
 
 arg_enum! {
     #[derive(Debug)]
     enum Format{
         Csv,
         Json,
+    }
+}
+
+struct ApiClient {
+    server: String,
+    client: Client,
+}
+impl ApiClient {
+    fn post_logs(&self, req: &api::logs::post::Request) -> reqwest::Result<()> {
+        self.client
+            .post(&format!("http://{}/logs", &self.server))
+            .json(req)
+            .send()
+            .map(|_| ())
+    }
+}
+
+fn do_post_csv(api_client: &ApiClient) {
+    let reader = csv::Reader::from_reader(io::stdin());
+    for log in reader.into_deserialize::<api::logs::post::Request>() {
+        let log = match log {
+            Ok(log) => log,
+            Err(e) => {
+                eprintln!("[WARN] failed to parse a line, skipping: {}", e);
+                continue;
+            }
+        };
+        api_client.post_logs(&log).expect("api request failed");
     }
 }
 
@@ -38,6 +68,13 @@ fn main() {
         );
     let matches = opts.get_matches();
 
+    let server = matches
+        .value_of("SERVER")
+        .unwrap_or("localhost:3000")
+        .into();
+    let client = Client::new();
+    let api_client = ApiClient { server, client };
+
     match matches.subcommand() {
         ("get", sub_match) => {
             let format = sub_match
@@ -49,6 +86,7 @@ fn main() {
                 Format::Json => unimplemented!(),
             }
         }
+        ("post", _) => do_post_csv(&api_client),
         _ => unreachable!(),
     }
 }
