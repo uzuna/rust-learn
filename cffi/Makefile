@@ -7,3 +7,13 @@ build_c:
 
 run_with_option:
 	RUSTFLAGS="-L native=$(PWD)/../target/debug/deps" cargo run
+
+
+.PHONY: setup
+setup:
+	sudo apt install libreadline-dev varglind
+
+
+# リークチェック
+.PHONY: check
+	valgrind ../target/debug/cffi
