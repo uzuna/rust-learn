@@ -1,5 +1,5 @@
 use std::ffi::{CStr, CString};
-use std::os::raw::{c_double, c_int, c_schar, c_ulonglong, c_void};
+use std::os::raw::{c_char, c_double, c_int, c_schar, c_ulonglong, c_void};
 
 // sudo apt get install libreadline-dev
 #[link(name = "readline")]
@@ -74,7 +74,7 @@ fn main() {
 
     // Use C with Rust Destractor
     {
-        for i in 0..1000 {
+        for i in 0..1 {
             let i = Box::new(i);
             unsafe { take_ownership(Box::into_raw(i), drop_pointer) };
         }
@@ -84,8 +84,44 @@ fn main() {
     {
         unsafe {
             let i = make_memory();
-            println!("got {}", *i);
+            println!("make_memory got {}", *i);
             libc::free(i as *mut _);
+        }
+    }
+    //
+    opaque();
+}
+
+// バリアントがない列挙型はユーザーが勝手に作れない
+enum File {}
+
+extern "C" {
+    fn fopen(fname: *const c_char, mode: *const c_char) -> *mut File;
+    fn fgetc(stream: *mut File) -> c_int;
+    fn fclose(stream: *mut File) -> c_int;
+}
+
+fn opaque() {
+    unsafe {
+        let fname: *const c_char = b"Cargo.toml\0".as_ptr() as *const _;
+        let mode: *const c_char = b"r\0".as_ptr() as *const _;
+        let file = fopen(fname, mode);
+        if file.is_null() {
+            println!("open file failed");
+            return;
+        }
+        loop {
+            let c = fgetc(file);
+            if c == -1 {
+                println!("failed to get");
+                break;
+            } else {
+                let c = c as u8 as char;
+                print!("{}", c);
+            }
+        }
+        if fclose(file) == -1 {
+            println!("close file failed");
         }
     }
 }
