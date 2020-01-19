@@ -1,4 +1,3 @@
-use std::ffi::{CStr, CString};
 use std::os::raw::{c_char, c_double, c_int, c_schar, c_ulonglong, c_void};
 
 // sudo apt get install libreadline-dev
@@ -40,7 +39,7 @@ fn main() {
 
         // ポインタへの操作は基本的にunsafe
         unsafe {
-            let x = *xptr;
+            let _x = *xptr;
         }
 
         // ミュータブル参照からはミュータブルなポインタが作れる。
@@ -52,7 +51,7 @@ fn main() {
 
         // Boxからポインタが作れる
         let z = Box::new(4);
-        let zptr: *const i32 = &*z;
+        let _zptr: *const i32 = &*z;
 
         // 所有権のmoveを伴う場合
         // into_rawで変換し、from_rawで戻す
@@ -60,7 +59,7 @@ fn main() {
         let boxptr: *mut i32 = Box::into_raw(z);
         unsafe {
             // 他に参照がないかはユーザーが保証しなければならない
-            let boxed = Box::from_raw(boxptr);
+            let _boxed = Box::from_raw(boxptr);
         }
 
         // Slice(文字列)からポインタが作れる
@@ -68,7 +67,7 @@ fn main() {
         let sptr: *const u8 = s.as_ptr();
         unsafe {
             // ポインタからスライスを作る場合はアンセーフ
-            let s = std::slice::from_raw_parts(sptr, s.len());
+            let _s = std::slice::from_raw_parts(sptr, s.len());
         }
     }
 
