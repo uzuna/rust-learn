@@ -90,6 +90,7 @@ fn main() {
     }
     //
     opaque();
+    time_of_day();
 }
 
 // バリアントがない列挙型はユーザーが勝手に作れない
@@ -123,6 +124,43 @@ fn opaque() {
         if fclose(file) == -1 {
             println!("close file failed");
         }
+    }
+}
+
+use libc::{suseconds_t, time_t};
+use std::mem;
+use std::ptr;
+
+#[repr(C)]
+#[derive(Debug)]
+struct Timeval {
+    tv_sec: time_t,       /* second */
+    tv_usec: suseconds_t, /* */
+}
+
+#[repr(C)]
+#[derive(Debug)]
+struct Timezone {
+    tz_minuteswest: c_int, /* second */
+    tz_dsttime: c_int,     /* */
+}
+
+extern "C" {
+    fn gettimeofday(tv: *mut Timeval, tz: *mut Timezone) -> c_int;
+}
+
+fn time_of_day() {
+    unsafe {
+        let mut tv: Timeval = mem::uninitialized();
+        let tz: *mut Timezone = ptr::null_mut();
+        let ret = gettimeofday(&mut tv as *mut _, tz);
+        if ret == -1 {
+            println!("failure");
+            return;
+        }
+        println!("{:?}", tv);
+
+        // これの注意点は*mutや*constはNullが返ってくる可能性があること
     }
 }
 
