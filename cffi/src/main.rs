@@ -16,6 +16,7 @@ extern "C" {
 #[link(name = "ownership", kind = "static")]
 extern "C" {
     fn take_ownership(i: *const c_int, dtor: unsafe extern "C" fn(i: *mut c_int)) -> c_void;
+    fn make_memory() -> *mut c_int;
 }
 
 // デストラクタ関数
@@ -76,6 +77,15 @@ fn main() {
         for i in 0..1000 {
             let i = Box::new(i);
             unsafe { take_ownership(Box::into_raw(i), drop_pointer) };
+        }
+    }
+
+    // Use rust with C malloc.flee
+    {
+        unsafe {
+            let i = make_memory();
+            println!("got {}", *i);
+            libc::free(i as *mut _);
         }
     }
 }

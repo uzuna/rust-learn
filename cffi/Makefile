@@ -16,4 +16,5 @@ setup:
 
 # リークチェック
 .PHONY: check
+check:
 	valgrind ../target/debug/cffi

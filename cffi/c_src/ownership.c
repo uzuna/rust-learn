@@ -8,3 +8,10 @@ void take_ownership(int *i, void(*dtor)(int *)) {
   // デストラクタ処理はRustから渡してもらう
   dtor(i);
 }
+
+int *make_memory() {
+  int *i;
+  i = malloc(sizeof(int));
+  *i=2;
+  return i;
+}
