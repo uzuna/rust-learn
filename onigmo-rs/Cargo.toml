@@ -9,4 +9,4 @@ edition = "2018"
 [dependencies]
 
 [workspace]
-members=["onigmo-sys"]
+members=["onigmo-sys", "onigmo"]
