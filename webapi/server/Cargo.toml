@@ -7,17 +7,21 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-env_logger= "0.6"
+env_logger= "0.7"
 log= "0.4"
-actix-web= "0.7"
+actix-web= "2"
+actix-rt = "1"
 failure= "0.1"
 api = {path = "../api"}
 dotenv = "0.13"
 chrono = "0.4"
 csv = "1"
-actix-web-multipart-file = "0.1"
-futures = "0.1"
+actix-multipart = "0.2"
+futures = "0.3"
 itertools = "0.8"
+tempfile = "3"
+actix-service = "1.0.1"
+
 
 [dependencies.diesel]
 features = ["postgres", "chrono", "r2d2"]

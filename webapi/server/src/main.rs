@@ -1,5 +1,10 @@
-use actix_web::http::Method;
-use actix_web::App;
+#[macro_use]
+extern crate diesel;
+use actix_service::ServiceFactory;
+use actix_web::body::Body;
+use actix_web::dev::{ServiceRequest, ServiceResponse};
+use actix_web::error::Error;
+use actix_web::{web, App, HttpServer};
 use diesel::pg::PgConnection;
 use diesel::r2d2::{ConnectionManager, Pool};
 use dotenv::dotenv;
@@ -10,16 +15,13 @@ mod handlers;
 mod model;
 mod schema;
 
-#[macro_use]
-extern crate diesel;
-
 #[derive(Clone)]
 pub struct Server {
     pool: Pool<ConnectionManager<PgConnection>>,
 }
 
 impl Server {
-    pub fn new() -> Server {
+    pub fn new() -> Self {
         dotenv().ok();
         let database_url = env::var("DATABASE_URL").expect("DATABASE_URL is not set");
         let manager = ConnectionManager::<PgConnection>::new(database_url);
@@ -30,22 +32,41 @@ impl Server {
     }
 }
 
-pub fn app(server: Server) -> App<Server> {
+pub fn app(
+    server: Server,
+) -> App<
+    impl ServiceFactory<
+        Config = (),
+        Request = ServiceRequest,
+        Response = ServiceResponse<Body>,
+        Error = Error,
+        InitError = (),
+    >,
+    Body,
+> {
     use crate::handlers::*;
 
-    let app: App<Server> = App::with_state(server)
-        .route("/logs", Method::POST, handler_post_logs)
-        .route("/csv", Method::POST, handler_post_csv)
-        .route("/logs", Method::GET, handler_get_logs)
-        .route("/csv", Method::GET, handler_get_csv);
-    app
+    App::new()
+        .data(server)
+        .service(
+            web::resource("logs")
+                .route(web::post().to(handler_post_logs))
+                .route(web::get().to(handler_get_logs)),
+        )
+        .service(
+            web::resource("csv")
+                .route(web::post().to(handler_post_csv))
+                .route(web::get().to(handler_get_csv)),
+        )
 }
 
-fn main() {
+#[actix_rt::main]
+async fn main() -> std::io::Result<()> {
     env_logger::init();
+
     let server = Server::new();
-    actix_web::server::new(move || app(server.clone()))
-        .bind("localhost:3000")
-        .expect("Can not bind to port 3000")
-        .run();
+    HttpServer::new(move || app(server.clone()))
+        .bind("localhost:3000")?
+        .run()
+        .await
 }
